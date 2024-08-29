@@ -22,8 +22,8 @@
 LiquidCrystal_I2C lcd(0x27, 20, 4); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // CREATE INSOMNIA TIMERS:
-int counter_reset_time_short = 800;
-int counter_reset_time_long = 6000;
+int counter_reset_time_short = 600;
+int counter_reset_time_long = 5000;
 
 Insomnia reset_timeout_short(counter_reset_time_short);
 Insomnia reset_timeout_long(counter_reset_time_long);
@@ -73,9 +73,9 @@ bool buttonBlinkEnabled = false;
 void update_lcd() {
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print(counter_value_short);
-  lcd.setCursor(0, 1);
   lcd.print(counter_value_long);
+  lcd.setCursor(0, 1);
+  lcd.print(counter_value_short);
 }
 
 void monitor_reset() {
