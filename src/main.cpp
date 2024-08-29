@@ -18,13 +18,16 @@
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
 
+// LCD
 LiquidCrystal_I2C lcd(0x27, 20, 4); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
-// CREATE THE TIMEOUT TIMER:
-Insomnia timeout(5000);
+// CREATE INSOMNIA TIMERS:
+int counter_reset_time_short = 800;
+int counter_reset_time_long = 6000;
 
-// CREATE A BLINK DELAY:
-Insomnia blinkDelay;
+Insomnia reset_timeout_short(counter_reset_time_short);
+Insomnia reset_timeout_long(counter_reset_time_long);
+
 //*****************************************************************************
 // DECLARATION OF VARIABLES
 //*****************************************************************************
@@ -34,6 +37,9 @@ Insomnia blinkDelay;
 // long  (-2,147,483,648 to 2,147,483,647)
 // float (6-7 Digits)
 //*****************************************************************************
+
+unsigned long counter_value_short = 666;
+unsigned long counter_value_long = 777;
 
 // BUTTONS:
 const byte COUNTER_BUTTON_PIN = 2;
@@ -47,17 +53,14 @@ Debounce reset_button(RESET_BUTTON_PIN);
 EEPROM_Counter counter_storage;
 
 enum counter {
-  longTimeCounter, // example value name
-  shortTimeCounter, // example value name
-  toolIdentNumber, // example value name
-  somethingElse, // example value name
-  endOfEnum // add additional values before this one...
-  // ...this has to be the last one!
+  stored_shorttime, //
+  stored_longtime, //
+  endOfEnum //
 };
 int numberOfValues = endOfEnum;
 
-int eepromMinAddress = 500; //  has to be 0 or bigger
-int eepromMaxAddress = 1000; // max EEPROM size -1
+int eepromMinAddress = 0; //  has to be 0 or bigger
+int eepromMaxAddress = 1023; // max EEPROM size -1
 
 // OTHER VARIABLES:
 bool previousButtonState;
@@ -66,6 +69,72 @@ bool machineRunning = false;
 bool buttonBlinkEnabled = false;
 
 //*****************************************************************************
+
+void update_lcd() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(counter_value_short);
+  lcd.setCursor(0, 1);
+  lcd.print(counter_value_long);
+}
+
+void monitor_reset() {
+
+  if (reset_button.switched_low()) {
+    reset_timeout_short.set_flag_activated(true);
+    reset_timeout_long.set_flag_activated(true);
+
+    reset_timeout_short.reset_time();
+    reset_timeout_long.reset_time();
+  }
+
+  if (reset_timeout_short.is_marked_activated() && reset_timeout_short.has_timed_out()) {
+    counter_value_short = 0;
+  }
+
+  if (reset_timeout_long.is_marked_activated() && reset_timeout_long.has_timed_out()) {
+    counter_value_short = 0;
+    counter_value_long = 0;
+  }
+
+  if (reset_button.switched_high()) {
+    reset_timeout_short.set_flag_activated(false);
+    reset_timeout_long.set_flag_activated(false);
+  }
+}
+
+void monitor_count_button() {
+  if (counter_button.switched_low()) {
+    counter_value_long++;
+    counter_value_short++;
+  }
+}
+
+bool value_has_changed() {
+
+  bool has_changed = false;
+
+  // SHORT:
+  static unsigned long prev_counter_value_short = counter_value_short;
+  if (prev_counter_value_short != counter_value_short) {
+    has_changed = true;
+    prev_counter_value_short = counter_value_short;
+  }
+
+  // LONG:
+  static unsigned long prev_counter_value_long = counter_value_long;
+  if (prev_counter_value_long != counter_value_long) {
+    has_changed = true;
+    prev_counter_value_long = counter_value_long;
+  }
+
+  return has_changed;
+}
+
+void update_eeprom() {
+  counter_storage.set_value(stored_shorttime, counter_value_short);
+  counter_storage.set_value(stored_longtime, counter_value_long);
+}
 
 //*****************************************************************************
 //******************######**#######*#######*#******#*######********************
@@ -76,18 +145,6 @@ bool buttonBlinkEnabled = false;
 //*****************************************************************************
 void setup() {
 
-  lcd.init(); // initialize the lcd
-  // Print a message to the LCD.
-  lcd.backlight();
-  lcd.setCursor(3, 0);
-  lcd.print("Hello, world!");
-  lcd.setCursor(2, 1);
-  lcd.print("Ywrobot Arduino!");
-  lcd.setCursor(0, 2);
-  lcd.print("Arduino LCM IIC 2004");
-  lcd.setCursor(2, 3);
-  lcd.print("Power By Ec-yuan!");
-
   // PIN MODE
   pinMode(COUNTER_BUTTON_PIN, INPUT_PULLUP);
   pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
@@ -95,10 +152,16 @@ void setup() {
   // EEPROM
   counter_storage.setup(eepromMinAddress, eepromMaxAddress, numberOfValues);
 
+  counter_value_short = counter_storage.get_value(stored_shorttime);
+  counter_value_long = counter_storage.get_value(stored_longtime);
+
+  // DISPLAY
+  lcd.init(); // initialize the lcd
+  lcd.backlight();
+  update_lcd();
+
   // VARIOUS
   Serial.begin(9600); // start serial connection
-  timeout.set_flag_activated(false); // timeout will be set active later
-  // updateDisplayCounter();
   Serial.println("EXIT SETUP");
 }
 //*****************************************************************************
@@ -111,36 +174,12 @@ void setup() {
 
 void loop() {
 
-  if (counter_button.switched_low()) {
-    Serial.println("COUNT");
-  }
+  monitor_reset();
 
-  if (reset_button.switched_low()) {
-    Serial.println("RESET BTN PUSH");
-  }
-  /*
-  // DETECT IF MACHINE HAS BEEN SWITCHED OFF:
-  if (!machineRunning) {
-    if (machineRunning == !previousMachineState) {
-      timeout.set_flag_activated(machineRunning);
-      Serial.println("MACHINE SWITCHED OFF");
-      previousMachineState = machineRunning;
-    }
-  }
-  // GET SIGNAL FROM TEST SWITCH AND COUNT IT:
-  bool debouncedButtonState = counter_button.get_raw_button_state();
-  if (previousButtonState != debouncedButtonState) {
-    if (debouncedButtonState == LOW) {
-      counter_storage.count_one_up(longTimeCounter);
-      // updateDisplayCounter();
-      timeout.reset_time();
-      buttonBlinkEnabled = false;
-    }
-    previousButtonState = debouncedButtonState;
-  }
+  monitor_count_button();
 
-  // RESET COUNT IF LONG BUTTON PUSH
-
-  // DISPLAY COUNT VALUE ON LCD
-*/
+  if (value_has_changed()) {
+    update_eeprom();
+    update_lcd();
+  }
 }
