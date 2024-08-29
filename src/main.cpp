@@ -15,8 +15,7 @@
 #include <EEPROM_Counter.h> // https://github.com/chischte/eeprom-counter-library.git
 #include <Insomnia.h> // https://github.com/chischte/insomnia-delay-library.git
 
-// CREATE THE EEPROM COUNTER:
-EEPROM_Counter switchCounter;
+
 
 // CREATE THE TIMEOUT TIMER:
 Insomnia timeout(5000);
@@ -33,15 +32,18 @@ Insomnia blinkDelay;
 // float (6-7 Digits)
 //*****************************************************************************
 
-// KNOBS AND POTENTIOMETERS:
-const byte TEST_SWITCH_PIN = 2;
-Debounce testSwitch(TEST_SWITCH_PIN);
-const byte MOTOR_RELAY_PIN = 50;
+// BUTTONS:
+const byte COUNTER_BUTTON_PIN = 2;
+const byte RESET_BUTTON_PIN = 0;
 
-// SENSORS:
-// n.a.
+Debounce counter_button(COUNTER_BUTTON_PIN);
+Debounce reset_button(RESET_BUTTON_PIN);
+
 
 // EEPROM
+
+EEPROM_Counter counter_storage;
+
 enum counter {
   longTimeCounter, // example value name
   shortTimeCounter, // example value name
@@ -71,11 +73,16 @@ bool buttonBlinkEnabled = false;
 //*****************######***######*****#*****######**#*************************
 //*****************************************************************************
 void setup() {
-  switchCounter.setup(eepromMinAddress, eepromMaxAddress, numberOfValues);
+  
+  // PIN MODE
+  pinMode(COUNTER_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
+  
+  // EEPROM
+  counter_storage.setup(eepromMinAddress, eepromMaxAddress, numberOfValues);
+  
+  // VARIOUS
   Serial.begin(9600); // start serial connection
-  pinMode(TEST_SWITCH_PIN, INPUT_PULLUP);
-  pinMode(MOTOR_RELAY_PIN, OUTPUT);
-  digitalWrite(MOTOR_RELAY_PIN, HIGH);
   timeout.set_flag_activated(false); // timeout will be set active later
   // updateDisplayCounter();
   Serial.println("EXIT SETUP");
@@ -90,6 +97,14 @@ void setup() {
 
 void loop() {
 
+  if(counter_button.switched_low()){
+    Serial.println("COUNT");
+  }
+
+  if(reset_button.switched_low()){
+    Serial.println("RESET BTN PUSH");
+  }
+/*
   // DETECT IF MACHINE HAS BEEN SWITCHED OFF:
   if (!machineRunning) {
     if (machineRunning == !previousMachineState) {
@@ -99,10 +114,10 @@ void loop() {
     }
   }
   // GET SIGNAL FROM TEST SWITCH AND COUNT IT:
-  bool debouncedButtonState = testSwitch.get_raw_button_state();
+  bool debouncedButtonState = counter_button.get_raw_button_state();
   if (previousButtonState != debouncedButtonState) {
     if (debouncedButtonState == LOW) {
-      switchCounter.count_one_up(longTimeCounter);
+      counter_storage.count_one_up(longTimeCounter);
       // updateDisplayCounter();
       timeout.reset_time();
       buttonBlinkEnabled = false;
@@ -113,4 +128,5 @@ void loop() {
   // RESET COUNT IF LONG BUTTON PUSH
 
   // DISPLAY COUNT VALUE ON LCD
+*/
 }
