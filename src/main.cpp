@@ -15,7 +15,10 @@
 #include <EEPROM_Counter.h> // https://github.com/chischte/eeprom-counter-library.git
 #include <Insomnia.h> // https://github.com/chischte/insomnia-delay-library.git
 
+#include <LiquidCrystal_I2C.h>
+#include <Wire.h>
 
+LiquidCrystal_I2C lcd(0x27, 20, 4); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // CREATE THE TIMEOUT TIMER:
 Insomnia timeout(5000);
@@ -38,7 +41,6 @@ const byte RESET_BUTTON_PIN = 0;
 
 Debounce counter_button(COUNTER_BUTTON_PIN);
 Debounce reset_button(RESET_BUTTON_PIN);
-
 
 // EEPROM
 
@@ -73,14 +75,26 @@ bool buttonBlinkEnabled = false;
 //*****************######***######*****#*****######**#*************************
 //*****************************************************************************
 void setup() {
-  
+
+  lcd.init(); // initialize the lcd
+  // Print a message to the LCD.
+  lcd.backlight();
+  lcd.setCursor(3, 0);
+  lcd.print("Hello, world!");
+  lcd.setCursor(2, 1);
+  lcd.print("Ywrobot Arduino!");
+  lcd.setCursor(0, 2);
+  lcd.print("Arduino LCM IIC 2004");
+  lcd.setCursor(2, 3);
+  lcd.print("Power By Ec-yuan!");
+
   // PIN MODE
   pinMode(COUNTER_BUTTON_PIN, INPUT_PULLUP);
   pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
-  
+
   // EEPROM
   counter_storage.setup(eepromMinAddress, eepromMaxAddress, numberOfValues);
-  
+
   // VARIOUS
   Serial.begin(9600); // start serial connection
   timeout.set_flag_activated(false); // timeout will be set active later
@@ -97,14 +111,14 @@ void setup() {
 
 void loop() {
 
-  if(counter_button.switched_low()){
+  if (counter_button.switched_low()) {
     Serial.println("COUNT");
   }
 
-  if(reset_button.switched_low()){
+  if (reset_button.switched_low()) {
     Serial.println("RESET BTN PUSH");
   }
-/*
+  /*
   // DETECT IF MACHINE HAS BEEN SWITCHED OFF:
   if (!machineRunning) {
     if (machineRunning == !previousMachineState) {
